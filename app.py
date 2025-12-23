@@ -21,15 +21,11 @@ if "user_connected" not in st.session_state:
 if "show_signup" not in st.session_state:
     st.session_state.show_signup = False
 
-# ---------------- IMAGES RÉALISTES ---------------- #
-# (Tu pourras les remplacer par tes propres photos plus tard)
+# ---------------- IMAGES (Exemples) ---------------- #
 LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3724/3724720.png"
-IMG_VIANDE_HACHE = "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?q=80&w=400"
-IMG_MERGUEZ = "https://images.unsplash.com/photo-1532636875304-0c89119d9b1d?q=80&w=400"
-IMG_BANANE = "https://images.unsplash.com/photo-1571771894821-ad990241274d?q=80&w=400"
-IMG_POMMES = "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?q=80&w=400"
+IMG_DEFAULT = "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400" # Image par défaut pour les nouveaux rayons
 
-# ---------------- STYLE CSS (Noir sur Blanc) ---------------- #
+# ---------------- STYLE CSS ---------------- #
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
@@ -78,98 +74,69 @@ with st.sidebar:
                 st.rerun()
     else:
         st.success(f"Bonjour {st.session_state.user_connected['Prenom']}")
-        st.write(f"💎 Points : {st.session_state.user_connected['Points']}")
         if st.button("Se déconnecter"):
             st.session_state.user_connected = None
             st.rerun()
 
     st.divider()
-    menu = st.radio("Navigation", ["🔥 Offres par Rayon", "📋 Catalogue Complet", "👤 Mon Espace Fidélité"])
+    menu = st.radio("Navigation", ["🔥 Offres par Rayon", "👤 Mon Espace Fidélité"])
 
 # ---------------- PAGE INSCRIPTION ---------------- #
 if st.session_state.show_signup and st.session_state.user_connected is None:
-    st.markdown("---")
     st.subheader("📝 Créer votre compte client")
     with st.form("form_inscription"):
         c1, c2 = st.columns(2)
         nom = c1.text_input("Nom")
         prenom = c2.text_input("Prénom")
-        age = st.number_input("Âge", min_value=12)
         email = st.text_input("Adresse Email")
-        mdp = st.text_input("Choisir un Mot de passe", type="password")
-        
+        mdp = st.text_input("Mot de passe", type="password")
         if st.form_submit_button("Confirmer l'inscription"):
-            if not email or not mdp:
-                st.error("Veuillez remplir tous les champs.")
-            else:
-                new_user = pd.DataFrame([{
-                    "Nom": nom, "Prenom": prenom, "Age": age, "Email": email, 
-                    "Password": mdp, "Points": 0, "Statut": "Actif"
-                }])
-                st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
-                sauvegarder_donnees(st.session_state.clients)
-                st.success("✅ Compte créé ! Connectez-vous dans la barre latérale.")
-                st.session_state.show_signup = False
-    st.markdown("---")
+            new_user = pd.DataFrame([{"Nom": nom, "Prenom": prenom, "Email": email, "Password": mdp, "Points": 0, "Statut": "Actif"}])
+            st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
+            sauvegarder_donnees(st.session_state.clients)
+            st.success("✅ Compte créé ! Connectez-vous à gauche.")
+            st.session_state.show_signup = False
 
 # ---------------- CONTENU PRINCIPAL ---------------- #
 if menu == "🔥 Offres par Rayon":
-    st.title("Nos Promotions du moment")
-    rayon = st.selectbox("Choisir un rayon :", ["🥩 Boucherie", "🍎 Fruits & Légumes"])
+    st.title("Découvrez nos rayons")
     
-    if rayon == "🥩 Boucherie":
-        st.subheader("Sélection Boucherie")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f'''<div class="product-card">
-                <img src="{IMG_VIANDE_HACHE}" class="product-img">
-                <p><b>Viande Hachée Pure Bœuf</b></p>
-                <span class="old-price">9,99€</span> <span class="new-price">8,99€ / kg</span>
-            </div>''', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f'''<div class="product-card">
-                <img src="{IMG_MERGUEZ}" class="product-img">
-                <p><b>Merguez Véritable</b></p>
-                <span class="old-price">13,99€</span> <span class="new-price">12,99€ / kg</span>
-            </div>''', unsafe_allow_html=True)
+    # LISTE DE TOUS TES NOUVEAUX RAYONS
+    liste_rayons = [
+        "🥩 Boucherie", "🍎 Fruits & Légumes", "🍾 Boisson", "🧂 Condiment", 
+        "🍪 Gateaux/Chips", "☕ Thé/Café", "🍝 Pate", "🌾 Feculent/Cereal", 
+        "🥫 Conserve/Bocaux", "🌱 Legumineuse", "🥜 Fruit sec", "📦 Rayon sec", 
+        "🥖 Boulangerie", "🧼 Hygiene/Beauté", "🏠 Entretien maison", 
+        "🍳 Espace cuisine", "👕 Pret à porter", "🥦 Produit frais", "🌻 Huile"
+    ]
+    
+    rayon_choisi = st.selectbox("Sélectionnez un rayon pour voir les offres :", liste_rayons)
+    
+    st.divider()
+    st.header(f"Rayon {rayon_choisi}")
+    
+    col1, col2 = st.columns(2)
 
-    elif rayon == "🍎 Fruits & Légumes":
-        st.subheader("Sélection Fraîcheur")
-        col1, col2 = st.columns(2)
+    # Exemple dynamique pour les offres selon le rayon
+    if rayon_choisi == "🥩 Boucherie":
         with col1:
-            st.markdown(f'''<div class="product-card">
-                <img src="{IMG_BANANE}" class="product-img">
-                <p><b>Bananes Cavendish</b></p>
-                <span class="old-price">2,00€</span> <span class="new-price">1,59€ / kg</span>
-            </div>''', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f'''<div class="product-card">
-                <img src="{IMG_POMMES}" class="product-img">
-                <p><b>Pommes Gala</b></p>
-                <span class="old-price">3,20€</span> <span class="new-price">2,49€ / 2kg</span>
-            </div>''', unsafe_allow_html=True)
+            st.markdown(f'<div class="product-card"><img src="{IMG_DEFAULT}" class="product-img"><p><b>Viande Hachée</b></p><span class="old-price">9,99€</span> <span class="new-price">8,99€ / kg</span></div>', unsafe_allow_html=True)
+    
+    elif rayon_choisi == "🍾 Boisson":
+        with col1:
+            st.markdown(f'<div class="product-card"><img src="{IMG_DEFAULT}" class="product-img"><p><b>Jus d\'Orange Frais</b></p><span class="old-price">2,50€</span> <span class="new-price">1,99€</span></div>', unsafe_allow_html=True)
 
-elif menu == "📋 Catalogue Complet":
-    st.title("Catalogue de tous les produits")
-    # Simulation de stock global
-    df_cat = pd.DataFrame([
-        {"Rayon": "Boucherie", "Produit": "Viande Hachée", "Prix": "8.99€", "Stock": "En stock"},
-        {"Rayon": "Boucherie", "Produit": "Merguez", "Prix": "12.99€", "Stock": "En stock"},
-        {"Rayon": "Frais", "Produit": "Bananes", "Prix": "1.59€", "Stock": "En stock"},
-        {"Rayon": "Frais", "Produit": "Lait", "Prix": "1.20€", "Stock": "En stock"},
-        {"Rayon": "Épicerie", "Produit": "Huile", "Prix": "2.99€", "Stock": "Rupture"},
-    ])
-    st.table(df_cat)
+    elif rayon_choisi == "🌻 Huile":
+        with col1:
+            st.markdown(f'<div class="product-card"><img src="{IMG_DEFAULT}" class="product-img"><p><b>Huile d\'Olive Vierge</b></p><span class="old-price">7,50€</span> <span class="new-price">5,99€</span></div>', unsafe_allow_html=True)
+            
+    else:
+        # Message par défaut pour les autres rayons
+        st.info(f"Les offres pour le rayon {rayon_choisi} arrivent bientôt ! Restez connectés.")
 
 elif menu == "👤 Mon Espace Fidélité":
     st.title("💎 Ma Fidélité VM")
     if st.session_state.user_connected:
-        user_mail = st.session_state.user_connected['Email']
-        user_data = st.session_state.clients[st.session_state.clients["Email"] == user_mail].iloc[0]
-        
-        st.header(f"Bienvenue, {user_data['Prenom']} !")
-        st.metric("Solde de points", f"{user_data['Points']} pts")
-        st.progress(min(int(user_data['Points'])/100, 1.0))
-        st.write("Plus que quelques points pour votre prochain cadeau !")
+        st.metric("Mon solde de points", f"{st.session_state.user_connected['Points']} pts")
     else:
-        st.warning("Veuillez vous connecter pour accéder à vos points.")
+        st.warning("Veuillez vous connecter pour voir vos points.")
