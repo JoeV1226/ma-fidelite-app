@@ -5,6 +5,7 @@ import os
 
 # ---------------- CONFIGURATION ---------------- #
 DB_FILE = "clients_db.csv"
+LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3724/3724720.png" # Remplace par l'URL de ton logo VM
 
 def charger_donnees():
     if os.path.exists(DB_FILE):
@@ -15,28 +16,60 @@ def charger_donnees():
 def sauvegarder_donnees(df):
     df.to_csv(DB_FILE, index=False)
 
-# Initialisation des données
 if "clients" not in st.session_state:
     st.session_state.clients = charger_donnees()
 if "user_connected" not in st.session_state:
     st.session_state.user_connected = None
 
-# ---------------- STYLE ---------------- #
-st.markdown("""
+# ---------------- STYLE PERSONNALISÉ (Couleurs de l'image) ---------------- #
+st.markdown(f"""
     <style>
-    .offer-card { background-color: #fff3cd; padding: 15px; border-radius: 10px; border-left: 5px solid #ffc107; margin-bottom: 10px; }
-    .old-price { text-decoration: line-through; color: red; font-size: 0.9em; }
-    .new-price { color: green; font-weight: bold; font-size: 1.2em; }
+    /* Fond de l'application */
+    .stApp {{ background-color: #f8f9fa; }}
+    
+    /* Sidebar - Gris Anthracite */
+    [data-testid="stSidebar"] {{
+        background-color: #343a40;
+        color: white;
+    }}
+    
+    /* Titres et boutons */
+    h1, h2, h3 {{ color: #1e7e34; font-family: 'Arial'; }}
+    
+    .stButton>button {{
+        background-color: #28a745;
+        color: white;
+        border-radius: 10px;
+        border: none;
+        width: 100%;
+    }}
+
+    /* Cartes des offres */
+    .offer-card {{
+        background-color: white;
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #28a745;
+        box-shadow: 2px 2px 12px rgba(0,0,0,0.1);
+        text-align: center;
+        margin-bottom: 15px;
+    }}
+    .old-price {{ text-decoration: line-through; color: #dc3545; font-size: 1em; }}
+    .new-price {{ color: #28a745; font-weight: bold; font-size: 1.5em; }}
+    .badge {{ background-color: #ffc107; padding: 5px 10px; border-radius: 5px; font-weight: bold; }}
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- INTERFACE ---------------- #
-st.title("🛒 Mon Magasin Pro")
-
-# Barre latérale pour la connexion
+# ---------------- SIDEBAR (Connexion & Logo) ---------------- #
 with st.sidebar:
+    st.image(LOGO_URL, width=100)
+    st.markdown("<h2 style='color:white; text-align:center;'>VM Magasin</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-style:italic;'>La qualité, le prix pour tous</p>", unsafe_allow_html=True)
+    
+    st.divider()
+    
     if st.session_state.user_connected is None:
-        st.subheader("Connexion")
+        st.subheader("🔑 Accès Client")
         email_log = st.text_input("Email")
         pass_log = st.text_input("Mot de passe", type="password")
         if st.button("Se connecter"):
@@ -46,86 +79,96 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.error("Identifiants incorrects")
-        
-        st.divider()
-        st.subheader("Pas encore de compte ?")
-        if st.button("Créer un compte"):
-            st.session_state.page = "Inscription"
     else:
-        st.success(f"Connecté : {st.session_state.user_connected['Nom']}")
+        st.success(f"Bienvenue, {st.session_state.user_connected['Nom']}")
         if st.button("Se déconnecter"):
             st.session_state.user_connected = None
             st.rerun()
 
-# Menu principal
-tabs = st.tabs(["🔥 Offres Spéciales", "📖 Catalogue", "💎 Mes Points", "⚙️ Admin"])
+# ---------------- CONTENU PRINCIPAL ---------------- #
+tabs = st.tabs(["⭐ Nos Offres", "📋 Catalogue", "💰 Mes Points", "⚙️ Gestion"])
 
 # --- TAB 1 : OFFRES SPÉCIALES ---
 with tabs[0]:
-    st.header("Promotions de la semaine")
-    col1, col2 = st.columns(2)
+    st.markdown("## 🏷️ Offres Spéciales")
+    c1, c2 = st.columns(2)
     
-    with col1:
-        st.markdown(f"""
+    with c1:
+        st.markdown("""
         <div class="offer-card">
-            <h4>🥩 Boucherie</h4>
-            <p>1kg d'escalopes de dinde</p>
-            <span class="old-price">9,59€</span> ➡️ <span class="new-price">8,59€</span>
+            <span class="badge">BOUCHERIE</span>
+            <h4>Escalopes de dinde (1kg)</h4>
+            <span class="old-price">9,59€</span> <span style='font-size:1.5em;'>➡️</span> <span class="new-price">8,59€</span>
+            <p style='color:gray; font-size:0.8em;'>Valable jusqu'au 31/12</p>
         </div>
         """, unsafe_allow_html=True)
 
-    with col2:
-        st.markdown(f"""
+    with c2:
+        st.markdown("""
         <div class="offer-card">
-            <h4>🍎 Rayon Frais</h4>
-            <p>Filet de pommes 2kg</p>
-            <span class="old-price">3,50€</span> ➡️ <span class="new-price">2,49€</span>
+            <span class="badge">RAYON FRAIS</span>
+            <h4>Filet de pommes (2kg)</h4>
+            <span class="old-price">3,50€</span> <span style='font-size:1.5em;'>➡️</span> <span class="new-price">2,49€</span>
+            <p style='color:gray; font-size:0.8em;'>Offre limitée</p>
         </div>
         """, unsafe_allow_html=True)
 
 # --- TAB 2 : CATALOGUE ---
 with tabs[1]:
-    st.header("Catalogue Produits")
-    # Simulation d'un stock
-    catalogue = pd.DataFrame({
-        "Produit": ["Lait", "Pain", "Escalope dinde", "Pâtes", "Café", "Yaourts"],
-        "Prix": ["1,20€", "0,90€", "8,59€", "1,50€", "4,20€", "2,10€"],
-        "Stock": ["En stock", "En stock", "En stock", "Rupture", "En stock", "En stock"]
-    })
+    st.markdown("## 📖 Catalogue Produits")
+    search = st.text_input("🔍 Rechercher un article dans le magasin...")
     
-    search = st.text_input("🔍 Chercher un produit...")
+    catalogue_data = [
+        {"Produit": "Lait Demi-écrémé", "Prix": "1.10€", "Rayon": "Frais", "État": "En stock"},
+        {"Produit": "Pain de mie", "Prix": "0.95€", "Rayon": "Boulangerie", "État": "En stock"},
+        {"Produit": "Huile de Tournesol", "Prix": "2.50€", "Rayon": "Épicerie", "État": "Rupture de stock"},
+        {"Produit": "Escalope de dinde", "Prix": "8.59€", "Rayon": "Boucherie", "État": "En stock"},
+    ]
+    df_cat = pd.DataFrame(catalogue_data)
+    
     if search:
-        catalogue = catalogue[catalogue["Produit"].str.contains(search, case=False)]
+        df_cat = df_cat[df_cat["Produit"].str.contains(search, case=False)]
     
-    st.table(catalogue)
+    st.dataframe(df_cat, use_container_width=True, hide_index=True)
 
-# --- TAB 3 : MES POINTS (AVEC CONNEXION) ---
+# --- TAB 3 : MES POINTS ---
 with tabs[2]:
-    st.header("Espace Fidélité")
+    st.markdown("## 💎 Espace Fidélité")
     if st.session_state.user_connected:
-        user_email = st.session_state.user_connected['Email']
-        # Rafraîchir les points depuis la base
-        current_user_data = st.session_state.clients[st.session_state.clients["Email"] == user_email].iloc[0]
+        # On récupère les points à jour
+        email = st.session_state.user_connected['Email']
+        user_data = st.session_state.clients[st.session_state.clients["Email"] == email].iloc[0]
         
-        st.metric("Mon solde de points", f"{current_user_data['Points']} pts")
-        st.progress(min(int(current_user_data['Points']) / 100, 1.0))
-        st.write("Cadeau à 100 points !")
+        col_pts, col_info = st.columns(2)
+        col_pts.metric("Solde actuel", f"{user_data['Points']} Points")
+        
+        pts_manquants = 100 - int(user_data['Points'])
+        if pts_manquants > 0:
+            st.info(f"Il vous manque **{pts_manquants} points** pour obtenir votre bon d'achat de 5€ !")
+        else:
+            st.success("🎁 Vous avez un bon d'achat disponible !")
+            
+        st.progress(min(int(user_data['Points']) / 100, 1.0))
     else:
-        st.warning("Veuillez vous connecter dans la barre latérale pour voir vos points.")
+        st.warning("Veuillez vous connecter pour voir vos points de fidélité.")
 
-# --- TAB 4 : ADMIN (POUR CRÉER LES COMPTES) ---
+# --- TAB 4 : ADMIN ---
 with tabs[3]:
-    st.header("Administration")
-    with st.expander("Enregistrer un nouveau client"):
-        with st.form("inscription_form"):
-            new_nom = st.text_input("Nom")
-            new_email = st.text_input("Email")
-            new_pass = st.text_input("Mot de passe", type="password")
+    st.markdown("## ⚙️ Administration")
+    
+    with st.expander("➕ Créer un nouveau compte client"):
+        with st.form("new_user"):
+            nom = st.text_input("Nom Complet")
+            email = st.text_input("Adresse Email")
+            mdp = st.text_input("Mot de passe", type="password")
             if st.form_submit_button("Créer le compte"):
-                new_user = pd.DataFrame([{"Email": new_email, "Password": new_pass, "Nom": new_nom, "Points": 0, "Dernier_Achat": datetime.date.today()}])
-                st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
-                sauvegarder_donnees(st.session_state.clients)
-                st.success("Compte créé ! Connectez-vous à gauche.")
+                if email in st.session_state.clients["Email"].values:
+                    st.error("Cet email existe déjà !")
+                else:
+                    new_line = pd.DataFrame([{"Email": email, "Password": mdp, "Nom": nom, "Points": 0, "Dernier_Achat": datetime.date.today()}])
+                    st.session_state.clients = pd.concat([st.session_state.clients, new_line], ignore_index=True)
+                    sauvegarder_donnees(st.session_state.clients)
+                    st.success("Compte créé avec succès !")
 
-    if st.checkbox("Voir tous les clients (Debug)"):
-        st.dataframe(st.session_state.clients)
+    if st.checkbox("Afficher la base clients"):
+        st.write(st.session_state.clients)
