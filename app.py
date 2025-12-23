@@ -2,15 +2,15 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-import smtplib
-from email.mime.text import MIMEText
 
 # ---------------- CONFIGURATION & BDD ---------------- #
 DB_FILE = "clients_db.csv"
+LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3724/3724720.png"
 
 def charger_donnees():
     if os.path.exists(DB_FILE):
-        return pd.read_csv(DB_FILE)
+        df = pd.read_csv(DB_FILE)
+        return df
     return pd.DataFrame(columns=["Nom", "Prenom", "Age", "Email", "Password", "Points", "Statut"])
 
 def sauvegarder_donnees(df):
@@ -23,98 +23,94 @@ if "user_connected" not in st.session_state:
 if "show_signup" not in st.session_state:
     st.session_state.show_signup = False
 
-# ---------------- FONCTION ENVOI EMAIL ---------------- #
-def envoyer_confirmation(email_dest, nom_client):
-    # Remplace par tes vrais identifiants (Attention: utilise un mot de passe d'application)
-    msg = MIMEText(f"Bonjour {nom_client},\n\nVotre compte VM Magasin a été créé avec succès ! Vous pouvez maintenant vous connecter.")
-    msg['Subject'] = 'Confirmation de création de compte VM Magasin'
-    msg['From'] = "ton-email@gmail.com"
-    msg['To'] = email_dest
+# ---------------- STYLE VM MAGASIN ---------------- #
+st.markdown("""
+    <style>
+    .stApp { background-color: #f8f9fa; }
+    [data-testid="stSidebar"] { background-color: #343a40; color: white; }
+    .offer-card { background-color: white; padding: 15px; border-radius: 12px; border: 2px solid #28a745; margin-bottom: 10px; text-align: center; }
+    .new-price { color: #28a745; font-weight: bold; font-size: 1.3em; }
+    .old-price { text-decoration: line-through; color: #dc3545; }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Simulation d'envoi (pour éviter de bloquer sans config SMTP)
-    st.info(f"📨 Un e-mail de confirmation a été envoyé à {email_dest}")
-    
-    # Décommenter ci-dessous pour activer le vrai envoi (nécessite config SMTP)
-    # with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-    #     server.login("ton-email@gmail.com", "ton-mot-de-passe-application")
-    #     server.sendmail("ton-email@gmail.com", email_dest, msg.as_string())
-
-# ---------------- INTERFACE SIDEBAR ---------------- #
+# ---------------- SIDEBAR (LOGO & CONNEXION) ---------------- #
 with st.sidebar:
-    st.markdown("### 🔑 Connexion")
+    st.image(LOGO_URL, width=80)
+    st.markdown("<h2 style='color:white;'>VM Magasin</h2>", unsafe_allow_html=True)
     
     if st.session_state.user_connected is None:
-        email_input = st.text_input("Email")
-        pass_input = st.text_input("Mot de passe", type="password")
+        st.subheader("🔑 Connexion")
+        email_log = st.text_input("Email")
+        pass_log = st.text_input("Mot de passe", type="password")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Se connecter"):
-                user = st.session_state.clients[
-                    (st.session_state.clients["Email"] == email_input) & 
-                    (st.session_state.clients["Password"] == pass_input)
-                ]
-                if not user.empty:
-                    st.session_state.user_connected = user.iloc[0].to_dict()
-                    st.session_state.show_signup = False
-                    st.rerun()
-                else:
-                    st.error("Identifiants incorrects")
-        
-        with col2:
-            if st.button("S'inscrire"):
-                st.session_state.show_signup = True
+        if st.button("Se connecter"):
+            user = st.session_state.clients[(st.session_state.clients["Email"] == email_log) & (st.session_state.clients["Password"] == pass_log)]
+            if not user.empty:
+                st.session_state.user_connected = user.iloc[0].to_dict()
+                st.session_state.show_signup = False # Ferme l'inscription si elle était ouverte
                 st.rerun()
+            else:
+                st.error("Identifiants incorrects")
+        
+        st.write("---")
+        if st.button("🆕 Créer un compte"):
+            st.session_state.show_signup = True
+            st.rerun()
     else:
-        st.success(f"Connecté : {st.session_state.user_connected['Nom']}")
-        if st.button("Déconnexion"):
+        st.success(f"Salut, {st.session_state.user_connected['Prenom']} !")
+        st.metric("Mes Points", f"{st.session_state.user_connected['Points']} pts")
+        if st.button("Se déconnecter"):
             st.session_state.user_connected = None
             st.rerun()
 
-# ---------------- PAGE INSCRIPTION ---------------- #
+# ---------------- FORMULAIRE D'INSCRIPTION (S'affiche en haut si activé) ---------------- #
 if st.session_state.show_signup and st.session_state.user_connected is None:
-    st.header("📝 Créer mon compte VM Magasin")
-    with st.form("inscription_complete"):
-        col_n, col_p = st.columns(2)
-        nom = col_n.text_input("Nom")
-        prenom = col_p.text_input("Prénom")
-        age = st.number_input("Âge", min_value=12, max_value=100)
-        email = st.text_input("Adresse Email")
-        mdp = st.text_input("Choisissez un mot de passe", type="password")
-        
-        if st.form_submit_button("Valider l'inscription"):
-            if email in st.session_state.clients["Email"].values:
-                st.error("Cet e-mail est déjà utilisé.")
-            elif not email or not mdp:
-                st.error("Veuillez remplir tous les champs.")
-            else:
-                # Ajout à la base
-                new_user = pd.DataFrame([{
-                    "Nom": nom, "Prenom": prenom, "Age": age, 
-                    "Email": email, "Password": mdp, "Points": 0, "Statut": "Actif"
-                }])
-                st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
-                sauvegarder_donnees(st.session_state.clients)
-                
-                # Email
-                envoyer_confirmation(email, prenom)
-                
-                st.success("Compte créé ! Vous pouvez maintenant vous connecter à gauche.")
-                st.session_state.show_signup = False
+    with st.expander("📝 FORMULAIRE D'INSCRIPTION - VM MAGASIN", expanded=True):
+        with st.form("inscription"):
+            c1, c2 = st.columns(2)
+            nom = c1.text_input("Nom")
+            prenom = c2.text_input("Prénom")
+            age = st.number_input("Âge", min_value=12)
+            email = st.text_input("Email de contact")
+            mdp = st.text_input("Mot de passe", type="password")
+            
+            if st.form_submit_button("Valider la création"):
+                if not email or not mdp:
+                    st.error("Email et Mot de passe obligatoires")
+                else:
+                    new_user = pd.DataFrame([{"Nom": nom, "Prenom": prenom, "Age": age, "Email": email, "Password": mdp, "Points": 0, "Statut": "Actif"}])
+                    st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
+                    sauvegarder_donnees(st.session_state.clients)
+                    st.success(f"✅ Compte créé ! Un email a été envoyé à {email} (simulation).")
+                    st.session_state.show_signup = False # On ferme le formulaire
+                    # st.rerun() # Optionnel : relance pour mettre à jour l'affichage
 
-# ---------------- CONTENU PRINCIPAL ---------------- #
-if not st.session_state.show_signup:
-    st.title("🛒 Bienvenue chez VM Magasin")
-    
-    # Ici tu remets tes onglets (Offres, Catalogue, Points)
-    t1, t2 = st.tabs(["🔥 Offres", "💎 Mes Points"])
-    
-    with t1:
-        st.write("Découvrez nos promos ici...")
-        
-    with t2:
-        if st.session_state.user_connected:
-            pts = st.session_state.user_connected['Points']
-            st.metric("Mon solde", f"{pts} points")
-        else:
-            st.info("Connectez-vous pour voir vos points.")
+# ---------------- INTERFACE DU MAGASIN (Toujours accessible) ---------------- #
+st.title("🛒 Notre Magasin")
+
+tabs = st.tabs(["🔥 Offres Spéciales", "📖 Catalogue", "💎 Ma Fidélité"])
+
+with tabs[0]:
+    st.subheader("Les promos VM")
+    colA, colB = st.columns(2)
+    with colA:
+        st.markdown('<div class="offer-card"><b>Boucherie</b><br>Escalope dinde (1kg)<br><span class="old-price">9,59€</span> <span class="new-price">8,59€</span></div>', unsafe_allow_html=True)
+    with colB:
+        st.markdown('<div class="offer-card"><b>Fidélité</b><br>Bonus Nouveau Client<br><span class="new-price">+10 Points offerts</span></div>', unsafe_allow_html=True)
+
+with tabs[1]:
+    st.subheader("Rechercher un produit")
+    search = st.text_input("🔍 Tapez le nom d'un article...")
+    # Simulation de données
+    df_prod = pd.DataFrame({"Article": ["Lait", "Pain", "Pommes", "Escalope"], "Prix": ["1.20€", "0.90€", "2.50€", "8.59€"], "Stock": ["Oui", "Oui", "Oui", "Oui"]})
+    st.table(df_prod)
+
+with tabs[2]:
+    st.subheader("Mon Espace Fidélité")
+    if st.session_state.user_connected:
+        st.write(f"Titulaire : **{st.session_state.user_connected['Prenom']} {st.session_state.user_connected['Nom']}**")
+        st.progress(min(int(st.session_state.user_connected['Points'])/100, 1.0))
+        st.write("Prochain coupon : 100 points")
+    else:
+        st.info("Connectez-vous pour voir vos avantages personnalisés.")
