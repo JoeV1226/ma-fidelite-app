@@ -7,7 +7,7 @@ from io import BytesIO
 # ---------------- CONFIGURATION & BDD ---------------- #
 DB_FILE = "clients_db.csv"
 # REMPLACE PAR TON URL REELLE :
-APP_URL = "https://ma-fidelite-app.streamlit.app" 
+APP_URL = "https://magasin-virtuel.streamlit.app" 
 
 def charger_donnees():
     if os.path.exists(DB_FILE):
