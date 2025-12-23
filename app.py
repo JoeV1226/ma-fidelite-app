@@ -3,11 +3,10 @@ import pandas as pd
 import os
 import qrcode
 from io import BytesIO
+from streamlit_qrcode_scanner import qrcode_scanner
 
 # ---------------- CONFIGURATION & BDD ---------------- #
 DB_FILE = "clients_db.csv"
-# REMPLACE PAR TON URL REELLE :
-APP_URL = "https://magasin-virtuel.streamlit.app" 
 
 def charger_donnees():
     if os.path.exists(DB_FILE):
@@ -20,158 +19,165 @@ def sauvegarder_donnees(df):
 if "clients" not in st.session_state:
     st.session_state.clients = charger_donnees()
 
-# --- DETECTION AUTOMATIQUE DU SCAN (PARAMETRE URL) ---
-query_params = st.query_params
-scanned_client = query_params.get("client")
-
-# ---------------- STYLE CSS (Noir sur Blanc) ---------------- #
+# ---------------- STYLE CSS (FORCER LE NOIR ET BLANC) ---------------- #
 st.markdown("""
     <style>
-    .stApp { background-color: #ffffff; color: #000; }
-    [data-testid="stSidebar"] { background-color: #343a40; color: white; }
-    .product-card {
-        border: 1px solid #eee; border-radius: 15px; padding: 15px;
+    /* Fond de l'application blanc et texte général noir */
+    .stApp { background-color: #ffffff; color: #000000 !important; }
+    
+    /* Forcer le noir sur TOUS les éléments de texte */
+    h1, h2, h3, p, span, label, .stMarkdown, .stMetric { color: #000000 !important; }
+    
+    /* Forcer le noir dans les champs de saisie (Inputs) */
+    input, textarea, [data-baseweb="input"] { 
+        color: #000000 !important; 
+        -webkit-text-fill-color: #000000 !important; 
+    }
+    
+    /* Forcer le noir dans les formulaires et les expanders */
+    .stForm, div[data-testid="stExpander"], .stTabs { color: #000000 !important; }
+
+    /* Cartes Produits et Cadeaux */
+    .product-card, .gift-card {
+        border: 1px solid #ddd; border-radius: 15px; padding: 15px;
         text-align: center; box-shadow: 0px 4px 6px rgba(0,0,0,0.05);
-        background-color: #fff; margin-bottom: 20px;
+        background-color: #fff; margin-bottom: 20px; color: #000 !important;
     }
-    .gift-card {
-        border: 2px dashed #28a745; border-radius: 15px; padding: 15px;
-        text-align: center; background-color: #f9fff9; margin-bottom: 10px;
+    .gift-card { border: 2px dashed #28a745; background-color: #f9fff9; }
+    .point-badge { background-color: #28a745; color: white !important; padding: 5px 10px; border-radius: 20px; font-weight: bold; }
+
+    /* Style Sidebar (Garder sombre pour le contraste) */
+    [data-testid="stSidebar"] { background-color: #343a40; }
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label { 
+        color: #ffffff !important; 
     }
-    .point-badge {
-        background-color: #28a745; color: white; padding: 5px 10px;
-        border-radius: 20px; font-weight: bold;
-    }
-    .qr-container { text-align: center; border: 2px solid #000; padding: 20px; border-radius: 20px; margin: 10px 0; }
-    .stat-box { background-color: #f0f2f6; padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 20px; border: 1px solid #ddd; }
     </style>
     """, unsafe_allow_html=True)
 
 # ---------------- NAVIGATION SIDEBAR ---------------- #
 with st.sidebar:
     st.title("VM Magasin")
-    
     if "user_connected" not in st.session_state:
         st.session_state.user_connected = None
 
     if st.session_state.user_connected:
         user_email = st.session_state.user_connected['Email']
-        # Rafraîchir les points depuis la DB
+        # Refresh points en temps réel
         pts_actuels = st.session_state.clients[st.session_state.clients['Email'] == user_email]['Points'].values[0]
         st.success(f"Client : {st.session_state.user_connected['Prenom']}")
-        st.markdown(f"### ⭐ Points : **{pts_actuels}**")
-        
+        st.markdown(f"### ⭐ Mes Points : **{pts_actuels}**")
         menu = st.radio("Navigation", ["📱 Mon Badge QR", "🛒 Rayons", "🎁 Cadeaux", "📟 CAISSE"])
-        if st.button("Se déconnecter"):
+        if st.button("Déconnexion"):
             st.session_state.user_connected = None
             st.rerun()
     else:
-        st.info("Veuillez vous connecter")
         menu = st.radio("Navigation", ["🔑 Connexion", "🛒 Rayons"])
 
-# ---------------- PAGE : CAISSE (SCAN AUTOMATIQUE OU MANUEL) ---------------- #
-if menu == "📟 CAISSE" or scanned_client:
+# ---------------- PAGE : CAISSE (SCANNER & POINTS) ---------------- #
+if menu == "📟 CAISSE":
     st.title("📟 Interface Caisse")
+    st.write("Scannez le badge du client pour créditer les points :")
     
-    # On détermine quel client on traite (soit par scan URL, soit par menu)
-    target_email = scanned_client if scanned_client else st.selectbox("Sélectionner le client", st.session_state.clients['Email'].unique())
+    email_scanne = qrcode_scanner(key='scanner_caisse')
     
-    if target_email:
+    # Choix du client (automatique par scan ou manuel)
+    target_email = email_scanne if email_scanne else st.selectbox("Ou sélectionnez manuellement :", [""] + list(st.session_state.clients['Email'].unique()))
+
+    if target_email and target_email != "":
         user_row = st.session_state.clients[st.session_state.clients['Email'] == target_email]
         if not user_row.empty:
             client = user_row.iloc[0]
-            st.markdown(f"""<div class="stat-box">
-                <h3>Client : {client['Prenom']} {client['Nom']}</h3>
-                <p style='font-size: 1.2em;'>Solde : <b>{client['Points']} Points</b></p>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(f"**Client détecté :** {client['Prenom']} {client['Nom']}")
+            st.markdown(f"**Solde actuel :** {client['Points']} points")
             
-            montant = st.number_input("Montant total des courses (€)", min_value=0.0, step=0.5)
-            # Calcul : 1 point pour 10€
+            montant = st.number_input("Montant de l'achat (€)", min_value=0.0, step=1.0)
             points_gagnes = int(montant / 10)
             
-            st.write(f"📈 Points à ajouter : **{points_gagnes}**")
+            st.write(f"📈 Points à ajouter (10%) : **{points_gagnes}**")
             
-            if st.button("Valider et Créditer"):
+            if st.button("Valider l'achat"):
                 idx = st.session_state.clients.index[st.session_state.clients['Email'] == target_email][0]
                 st.session_state.clients.at[idx, 'Points'] += points_gagnes
                 sauvegarder_donnees(st.session_state.clients)
-                st.success(f"Succès ! {points_gagnes} points ajoutés.")
+                st.success(f"Transaction réussie ! +{points_gagnes} points.")
                 st.balloons()
-                # On nettoie l'URL et on refresh
-                st.query_params.clear()
                 st.rerun()
 
 # ---------------- PAGE : MON BADGE QR ---------------- #
 elif menu == "📱 Mon Badge QR":
     st.title("Mon Badge Fidélité")
     email = st.session_state.user_connected['Email']
-    # Le QR code contient le LIEN de l'app avec l'email en paramètre
-    qr_link = f"{APP_URL}?client={email}"
     
-    qr = qrcode.make(qr_link)
+    # Génération du QR Code basé uniquement sur l'email
+    qr = qrcode.make(email)
     buf = BytesIO()
     qr.save(buf)
     
     st.write("Présentez ce code à la caisse pour vos points.")
-    st.markdown('<div class="qr-container">', unsafe_allow_html=True)
-    st.image(buf.getvalue(), width=300)
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.info("Ce code ouvre directement votre fiche client sur le téléphone du gérant.")
+    st.image(buf.getvalue(), caption=f"ID Client : {email}", width=300)
+    st.info("Ce badge permet au gérant de vous identifier rapidement.")
 
 # ---------------- PAGE : RAYONS (LES 19) ---------------- #
 elif menu == "🛒 Rayons":
-    st.title("Nos Promotions")
+    st.title("Nos Rayons")
     rayons = ["🥩 Boucherie", "🍎 Fruits & Légumes", "🍾 Boison", "🧂 Condiment", "🍪 Gateaux/Chips", "☕ Thé/Café", "🍝 Pate", "🌾 Feculent/Cereal", "🥫 Conserve/Bocaux", "🌱 Leguminseuse", "🥜 Fruit sec", "📦 Rayon sec", "🥖 Boulangerie", "🧼 Hygiene/Beauté", "🏠 Entretien maison", "🍳 Espace cuisine", "👕 Pret a porter", "🥦 Produit frais", "🌻 Huile"]
     choix = st.selectbox("Choisir un rayon", rayons)
     
-    col1, col2 = st.columns(2)
-    if choix == "🥩 Boucherie":
-        with col1: st.markdown('<div class="product-card"><b>Viande Hachée</b><br><span style="text-decoration:line-through; color:red;">9,99€</span> <span style="color:green; font-weight:bold;">8,99€/kg</span></div>', unsafe_allow_html=True)
-        with col2: st.markdown('<div class="product-card"><b>Merguez</b><br><span style="text-decoration:line-through; color:red;">13,99€</span> <span style="color:green; font-weight:bold;">12,99€/kg</span></div>', unsafe_allow_html=True)
-    elif choix == "🍎 Fruits & Légumes":
-        with col1: st.markdown('<div class="product-card"><b>Bananes</b><br><span style="text-decoration:line-through; color:red;">2,00€</span> <span style="color:green; font-weight:bold;">1,59€/kg</span></div>', unsafe_allow_html=True)
-    else:
-        st.info(f"Consultez les arrivages du rayon {choix} en magasin.")
+    st.header(f"Rayon {choix}")
+    st.info(f"Les promotions du rayon {choix} arrivent bientôt !")
 
-# ---------------- PAGE : CADEAUX ---------------- #
+# ---------------- PAGE : CADEAUX FIDÉLITÉ ---------------- #
 elif menu == "🎁 Cadeaux":
-    st.title("🎁 Boutique Fidélité")
-    st.write("Échangez vos points contre des produits gratuits.")
+    st.title("🎁 Boutique Cadeaux")
+    st.write("Échangez vos points contre ces articles gratuits :")
+    
     cadeaux = [("Lait 1L", 2), ("Farine 1kg", 3), ("Couscous 500g", 1)]
     cols = st.columns(3)
-    for i, (prod, prix) in enumerate(cadeaux):
+    
+    for i, (prod, coût) in enumerate(cadeaux):
         with cols[i]:
-            st.markdown(f'<div class="gift-card"><b>{prod}</b><br><span class="point-badge">{prix} Pts</span></div>', unsafe_allow_html=True)
-            if st.button(f"Prendre {prod}"):
-                email = st.session_state.user_connected['Email']
-                idx = st.session_state.clients.index[st.session_state.clients['Email'] == email][0]
-                if st.session_state.clients.at[idx, 'Points'] >= prix:
-                    st.session_state.clients.at[idx, 'Points'] -= prix
+            st.markdown(f'<div class="gift-card"><b>{prod}</b><br><br><span class="point-badge">{coût} Pts</span></div>', unsafe_allow_html=True)
+            if st.button(f"Prendre {prod}", key=f"btn_{prod}"):
+                u_email = st.session_state.user_connected['Email']
+                idx = st.session_state.clients.index[st.session_state.clients['Email'] == u_email][0]
+                
+                if st.session_state.clients.at[idx, 'Points'] >= coût:
+                    st.session_state.clients.at[idx, 'Points'] -= coût
                     sauvegarder_donnees(st.session_state.clients)
-                    st.success("Cadeau validé !")
+                    st.success("Cadeau obtenu !")
                     st.rerun()
                 else:
                     st.error("Points insuffisants.")
 
 # ---------------- PAGE : CONNEXION & INSCRIPTION ---------------- #
 elif menu == "🔑 Connexion":
-    tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
+    st.title("Espace Client VM")
+    tab1, tab2 = st.tabs(["Se connecter", "Créer un compte"])
+    
     with tab1:
-        email = st.text_input("Email")
-        mdp = st.text_input("Mot de passe", type="password")
-        if st.button("Se connecter"):
-            user = st.session_state.clients[(st.session_state.clients["Email"] == email) & (st.session_state.clients["Password"] == mdp)]
+        e = st.text_input("Email", key="login_email")
+        p = st.text_input("Mot de passe", type="password", key="login_pass")
+        if st.button("Entrer"):
+            user = st.session_state.clients[(st.session_state.clients["Email"] == e) & (st.session_state.clients["Password"] == p)]
             if not user.empty:
                 st.session_state.user_connected = user.iloc[0].to_dict()
                 st.rerun()
+            else:
+                st.error("Identifiants incorrects.")
+                
     with tab2:
-        with st.form("inscription"):
+        with st.form("form_inscription"):
+            st.write("### Nouveau client")
             n = st.text_input("Nom")
-            p = st.text_input("Prénom")
-            e = st.text_input("Email")
-            m = st.text_input("Mot de passe", type="password")
-            if st.form_submit_button("Valider"):
-                new_u = pd.DataFrame([{"Nom": n, "Prenom": p, "Email": e, "Password": m, "Points": 0, "Statut": "Actif"}])
-                st.session_state.clients = pd.concat([st.session_state.clients, new_u], ignore_index=True)
-                sauvegarder_donnees(st.session_state.clients)
-                st.success("Compte créé ! Connectez-vous.")
+            pr = st.text_input("Prénom")
+            em = st.text_input("Email professionnel ou perso")
+            md = st.text_input("Mot de passe", type="password")
+            
+            if st.form_submit_button("S'inscrire"):
+                if em and md:
+                    new_u = pd.DataFrame([{"Nom": n, "Prenom": pr, "Email": em, "Password": md, "Points": 0, "Statut": "Actif"}])
+                    st.session_state.clients = pd.concat([st.session_state.clients, new_u], ignore_index=True)
+                    sauvegarder_donnees(st.session_state.clients)
+                    st.success("Compte créé ! Connectez-vous sur l'onglet d'à côté.")
+                else:
+                    st.warning("Veuillez remplir les champs Email et Mot de passe.")
