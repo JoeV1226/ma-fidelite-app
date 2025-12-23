@@ -3,129 +3,129 @@ import pandas as pd
 import datetime
 import os
 
-# ---------------- CONFIGURATION & FICHIER ---------------- #
-
-DB_FILE = "database_fidelite.csv"
+# ---------------- CONFIGURATION ---------------- #
+DB_FILE = "clients_db.csv"
 
 def charger_donnees():
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
-        # S'assurer que la date est au bon format
-        df["Dernier_Achat"] = pd.to_datetime(df["Dernier_Achat"]).dt.date
         return df
-    else:
-        return pd.DataFrame(columns=[
-            "ID", "Nom", "Points", "Dernier_Achat", "Email", "Segment"
-        ])
+    return pd.DataFrame(columns=["Email", "Password", "Nom", "Points", "Dernier_Achat"])
 
-def sauvegarder_donnees():
-    st.session_state.clients.to_csv(DB_FILE, index=False)
+def sauvegarder_donnees(df):
+    df.to_csv(DB_FILE, index=False)
 
-# ---------------- INITIALISATION ---------------- #
-
-st.set_page_config(page_title="Mon Magasin Plus", layout="centered")
-
+# Initialisation des données
 if "clients" not in st.session_state:
     st.session_state.clients = charger_donnees()
+if "user_connected" not in st.session_state:
+    st.session_state.user_connected = None
 
-# CSS pour le look "App Mobile"
+# ---------------- STYLE ---------------- #
 st.markdown("""
     <style>
-    .stProgress > div > div > div > div { background-color: #0050aa; }
-    .coupon-card {
-        padding: 15px;
-        border-radius: 10px;
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        margin-bottom: 10px;
-    }
+    .offer-card { background-color: #fff3cd; padding: 15px; border-radius: 10px; border-left: 5px solid #ffc107; margin-bottom: 10px; }
+    .old-price { text-decoration: line-through; color: red; font-size: 0.9em; }
+    .new-price { color: green; font-weight: bold; font-size: 1.2em; }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- FONCTIONS MÉTIER ---------------- #
-
-def ajouter_points(id_client, montant):
-    idx = st.session_state.clients.index[st.session_state.clients["ID"] == id_client]
-    if not idx.empty:
-        pts = int(montant // 5)
-        st.session_state.clients.at[idx[0], "Points"] += pts
-        st.session_state.clients.at[idx[0], "Dernier_Achat"] = datetime.date.today()
-        sauvegarder_donnees() # Sauvegarde immédiate après achat
-        return pts
-    return 0
-
 # ---------------- INTERFACE ---------------- #
+st.title("🛒 Mon Magasin Pro")
 
-st.title("💙 Mon Magasin Plus")
-
-tabs = st.tabs(["📱 Ma Carte", "🎟️ Mes Coupons", "🛒 Encaisser", "⚙️ Admin"])
-
-# --- TAB 1 : VUE CLIENT ---
-with tabs[0]:
-    search_id = st.number_input("Entrez votre ID Client", min_value=0, step=1)
-    client_data = st.session_state.clients[st.session_state.clients["ID"] == search_id]
-    
-    if not client_data.empty:
-        row = client_data.iloc[0]
-        st.header(f"Ravi de vous revoir, {row['Nom']} !")
+# Barre latérale pour la connexion
+with st.sidebar:
+    if st.session_state.user_connected is None:
+        st.subheader("Connexion")
+        email_log = st.text_input("Email")
+        pass_log = st.text_input("Mot de passe", type="password")
+        if st.button("Se connecter"):
+            user = st.session_state.clients[(st.session_state.clients["Email"] == email_log) & (st.session_state.clients["Password"] == pass_log)]
+            if not user.empty:
+                st.session_state.user_connected = user.iloc[0].to_dict()
+                st.rerun()
+            else:
+                st.error("Identifiants incorrects")
         
-        # Jauge de progression
-        pts = row['Points']
-        palier = 50
-        progress = min(pts / palier, 1.0)
-        st.write(f"**Points cumulés : {pts}**")
-        st.progress(progress)
-        
-        if pts >= palier:
-            st.success("🎉 Vous avez débloqué un bon d'achat !")
-        else:
-            st.info(f"Encore {palier - pts} points pour votre prochain cadeau.")
+        st.divider()
+        st.subheader("Pas encore de compte ?")
+        if st.button("Créer un compte"):
+            st.session_state.page = "Inscription"
     else:
-        st.caption("Entrez votre identifiant pour voir vos points.")
+        st.success(f"Connecté : {st.session_state.user_connected['Nom']}")
+        if st.button("Se déconnecter"):
+            st.session_state.user_connected = None
+            st.rerun()
 
-# --- TAB 2 : COUPONS ---
+# Menu principal
+tabs = st.tabs(["🔥 Offres Spéciales", "📖 Catalogue", "💎 Mes Points", "⚙️ Admin"])
+
+# --- TAB 1 : OFFRES SPÉCIALES ---
+with tabs[0]:
+    st.header("Promotions de la semaine")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="offer-card">
+            <h4>🥩 Boucherie</h4>
+            <p>1kg d'escalopes de dinde</p>
+            <span class="old-price">9,59€</span> ➡️ <span class="new-price">8,59€</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="offer-card">
+            <h4>🍎 Rayon Frais</h4>
+            <p>Filet de pommes 2kg</p>
+            <span class="old-price">3,50€</span> ➡️ <span class="new-price">2,49€</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- TAB 2 : CATALOGUE ---
 with tabs[1]:
-    st.subheader("Mes avantages")
-    coupons = [
-        {"nom": "Coupons Fruits & Légumes", "desc": "-15% dès 10 pts", "req": 10},
-        {"nom": "Offre Boulangerie", "desc": "3 achetés + 1 offert", "req": 0},
-        {"nom": "Bon de 5€", "desc": "Réduction immédiate", "req": 50}
-    ]
+    st.header("Catalogue Produits")
+    # Simulation d'un stock
+    catalogue = pd.DataFrame({
+        "Produit": ["Lait", "Pain", "Escalope dinde", "Pâtes", "Café", "Yaourts"],
+        "Prix": ["1,20€", "0,90€", "8,59€", "1,50€", "4,20€", "2,10€"],
+        "Stock": ["En stock", "En stock", "En stock", "Rupture", "En stock", "En stock"]
+    })
     
-    for c in coupons:
-        st.markdown(f"""<div class="coupon-card">
-            <strong>{c['nom']}</strong><br>{c['desc']}
-        </div>""", unsafe_allow_html=True)
-        st.button(f"Activer l'offre", key=c['nom'])
+    search = st.text_input("🔍 Chercher un produit...")
+    if search:
+        catalogue = catalogue[catalogue["Produit"].str.contains(search, case=False)]
+    
+    st.table(catalogue)
 
-# --- TAB 3 : CAISSE ---
+# --- TAB 3 : MES POINTS (AVEC CONNEXION) ---
 with tabs[2]:
-    st.subheader("Enregistrement Achat")
-    c_id = st.number_input("Scanner ID", min_value=0, key="caisse_id")
-    montant = st.number_input("Montant (€)", min_value=0.0)
-    
-    if st.button("Valider la transaction"):
-        pts_gagnes = ajouter_points(c_id, montant)
-        if pts_gagnes > 0:
-            st.success(f"Bravo ! +{pts_gagnes} points ajoutés.")
-            st.balloons()
-        else:
-            st.error("ID Client inconnu.")
+    st.header("Espace Fidélité")
+    if st.session_state.user_connected:
+        user_email = st.session_state.user_connected['Email']
+        # Rafraîchir les points depuis la base
+        current_user_data = st.session_state.clients[st.session_state.clients["Email"] == user_email].iloc[0]
+        
+        st.metric("Mon solde de points", f"{current_user_data['Points']} pts")
+        st.progress(min(int(current_user_data['Points']) / 100, 1.0))
+        st.write("Cadeau à 100 points !")
+    else:
+        st.warning("Veuillez vous connecter dans la barre latérale pour voir vos points.")
 
-# --- TAB 4 : ADMIN ---
+# --- TAB 4 : ADMIN (POUR CRÉER LES COMPTES) ---
 with tabs[3]:
-    st.subheader("Paramètres & Base de données")
-    
-    if st.checkbox("Afficher la liste des clients"):
+    st.header("Administration")
+    with st.expander("Enregistrer un nouveau client"):
+        with st.form("inscription_form"):
+            new_nom = st.text_input("Nom")
+            new_email = st.text_input("Email")
+            new_pass = st.text_input("Mot de passe", type="password")
+            if st.form_submit_button("Créer le compte"):
+                new_user = pd.DataFrame([{"Email": new_email, "Password": new_pass, "Nom": new_nom, "Points": 0, "Dernier_Achat": datetime.date.today()}])
+                st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
+                sauvegarder_donnees(st.session_state.clients)
+                st.success("Compte créé ! Connectez-vous à gauche.")
+
+    if st.checkbox("Voir tous les clients (Debug)"):
         st.dataframe(st.session_state.clients)
-    
-    with st.expander("Inscrire un nouveau client"):
-        with st.form("inscription"):
-            n_id = st.number_input("ID unique", min_value=1)
-            n_nom = st.text_input("Nom")
-            n_mail = st.text_input("Email")
-            if st.form_submit_button("Enregistrer"):
-                new_data = pd.DataFrame([{"ID": n_id, "Nom": n_nom, "Points": 0, "Dernier_Achat": datetime.date.today(), "Email": n_mail, "Segment": "Nouveau"}])
-                st.session_state.clients = pd.concat([st.session_state.clients, new_data], ignore_index=True)
-                sauvegarder_donnees()
-                st.success("Client créé avec succès !")
