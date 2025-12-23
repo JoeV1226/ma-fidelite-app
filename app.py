@@ -21,18 +21,14 @@ if "user_connected" not in st.session_state:
 if "show_signup" not in st.session_state:
     st.session_state.show_signup = False
 
-# ---------------- IMAGES (Exemples) ---------------- #
-LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3724/3724720.png"
-IMG_DEFAULT = "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400" # Image par défaut pour les nouveaux rayons
-
-# ---------------- STYLE CSS ---------------- #
+# ---------------- STYLE CSS (Professionnel) ---------------- #
 st.markdown("""
     <style>
     .stApp { background-color: #ffffff; color: #000000; }
     p, span, label, h1, h2, h3 { color: #000000 !important; }
     [data-testid="stSidebar"] { background-color: #343a40; color: white; }
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label { color: white !important; }
     
+    /* Cartes Produits */
     .product-card {
         border: 1px solid #eee;
         border-radius: 15px;
@@ -42,101 +38,140 @@ st.markdown("""
         background-color: #fff;
         margin-bottom: 20px;
     }
-    .product-img { width: 100%; height: 160px; object-fit: cover; border-radius: 10px; }
-    .old-price { text-decoration: line-through; color: #cc0000; font-size: 0.9em; }
-    .new-price { color: #28a745; font-weight: bold; font-size: 1.3em; }
+    
+    /* Cartes Cadeaux */
+    .gift-card {
+        border: 2px dashed #28a745;
+        border-radius: 15px;
+        padding: 15px;
+        text-align: center;
+        background-color: #f9fff9;
+        margin-bottom: 10px;
+    }
+    .point-badge {
+        background-color: #28a745;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+    .old-price { text-decoration: line-through; color: #cc0000; }
+    .new-price { color: #28a745; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- NAVIGATION SIDEBAR ---------------- #
+# ---------------- LOGIQUE POINTS ---------------- #
+def modifier_points(email, montant, operation="ajout"):
+    idx = st.session_state.clients.index[st.session_state.clients['Email'] == email]
+    if not idx.empty:
+        if operation == "ajout":
+            st.session_state.clients.at[idx[0], 'Points'] += montant
+        else:
+            if st.session_state.clients.at[idx[0], 'Points'] >= montant:
+                st.session_state.clients.at[idx[0], 'Points'] -= montant
+            else:
+                return False
+        sauvegarder_donnees(st.session_state.clients)
+        return True
+    return False
+
+# ---------------- SIDEBAR ---------------- #
 with st.sidebar:
-    st.image(LOGO_URL, width=80)
     st.title("VM Magasin")
     
     if st.session_state.user_connected is None:
-        st.subheader("🔑 Accès Client")
+        st.subheader("🔑 Connexion")
         email_log = st.text_input("Email")
         pass_log = st.text_input("Mot de passe", type="password")
-        
-        col_login, col_sign = st.columns(2)
-        with col_login:
-            if st.button("Connexion"):
-                user = st.session_state.clients[(st.session_state.clients["Email"] == email_log) & (st.session_state.clients["Password"] == pass_log)]
-                if not user.empty:
-                    st.session_state.user_connected = user.iloc[0].to_dict()
-                    st.session_state.show_signup = False
-                    st.rerun()
-                else:
-                    st.error("Identifiants incorrects")
-        with col_sign:
-            if st.button("S'inscrire"):
-                st.session_state.show_signup = True
+        col_l, col_s = st.columns(2)
+        if col_l.button("Connexion"):
+            user = st.session_state.clients[(st.session_state.clients["Email"] == email_log) & (st.session_state.clients["Password"] == pass_log)]
+            if not user.empty:
+                st.session_state.user_connected = user.iloc[0].to_dict()
                 st.rerun()
+            else:
+                st.error("Erreur d'identifiants")
+        if col_s.button("S'inscrire"):
+            st.session_state.show_signup = True
     else:
-        st.success(f"Bonjour {st.session_state.user_connected['Prenom']}")
+        # Refresh points display
+        u_email = st.session_state.user_connected['Email']
+        pts_actuels = st.session_state.clients[st.session_state.clients['Email'] == u_email]['Points'].values[0]
+        st.success(f"Salut {st.session_state.user_connected['Prenom']} !")
+        st.markdown(f"### ⭐ Points : **{pts_actuels}**")
         if st.button("Se déconnecter"):
             st.session_state.user_connected = None
             st.rerun()
 
     st.divider()
-    menu = st.radio("Navigation", ["🔥 Offres par Rayon", "👤 Mon Espace Fidélité"])
+    menu = st.radio("Aller vers", ["🔥 Offres Rayons", "🎁 Cadeaux Fidélité", "📟 CAISSE (Admin)"])
 
-# ---------------- PAGE INSCRIPTION ---------------- #
+# ---------------- INSCRIPTION ---------------- #
 if st.session_state.show_signup and st.session_state.user_connected is None:
-    st.subheader("📝 Créer votre compte client")
-    with st.form("form_inscription"):
-        c1, c2 = st.columns(2)
-        nom = c1.text_input("Nom")
-        prenom = c2.text_input("Prénom")
-        email = st.text_input("Adresse Email")
-        mdp = st.text_input("Mot de passe", type="password")
-        if st.form_submit_button("Confirmer l'inscription"):
-            new_user = pd.DataFrame([{"Nom": nom, "Prenom": prenom, "Email": email, "Password": mdp, "Points": 0, "Statut": "Actif"}])
-            st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
-            sauvegarder_donnees(st.session_state.clients)
-            st.success("✅ Compte créé ! Connectez-vous à gauche.")
-            st.session_state.show_signup = False
+    with st.expander("📝 CRÉER MON COMPTE", expanded=True):
+        with st.form("inscription"):
+            nom = st.text_input("Nom")
+            prenom = st.text_input("Prénom")
+            email = st.text_input("Email")
+            mdp = st.text_input("Mot de passe", type="password")
+            if st.form_submit_button("Valider"):
+                new_u = pd.DataFrame([{"Nom": nom, "Prenom": prenom, "Email": email, "Password": mdp, "Points": 0, "Statut": "Actif"}])
+                st.session_state.clients = pd.concat([st.session_state.clients, new_u], ignore_index=True)
+                sauvegarder_donnees(st.session_state.clients)
+                st.success("Compte créé ! Connectez-vous à gauche.")
+                st.session_state.show_signup = False
 
-# ---------------- CONTENU PRINCIPAL ---------------- #
-if menu == "🔥 Offres par Rayon":
-    st.title("Découvrez nos rayons")
+# ---------------- PAGE RAYONS ---------------- #
+if menu == "🔥 Offres Rayons":
+    st.title("Nos Rayons")
+    rayons = ["🥩 Boucherie", "🍎 Fruits & Légumes", "🍾 Boison", "🧂 Condiment", "🍪 Gateaux/Chips", "☕ Thé/Café", "🍝 Pate", "🌾 Feculent/Cereal", "🥫 Conserve/Bocaux", "🌱 Leguminseuse", "🥜 Fruit sec", "📦 Rayon sec", "🥖 Boulangerie", "🧼 Hygiene/Beauté", "🏠 Entretien maison", "🍳 Espace cuisine", "👕 Pret a porter", "🥦 Produit frais", "🌻 Huile"]
+    choix = st.selectbox("Choisir un rayon", rayons)
     
-    # LISTE DE TOUS TES NOUVEAUX RAYONS
-    liste_rayons = [
-        "🥩 Boucherie", "🍎 Fruits & Légumes", "🍾 Boisson", "🧂 Condiment", 
-        "🍪 Gateaux/Chips", "☕ Thé/Café", "🍝 Pate", "🌾 Feculent/Cereal", 
-        "🥫 Conserve/Bocaux", "🌱 Legumineuse", "🥜 Fruit sec", "📦 Rayon sec", 
-        "🥖 Boulangerie", "🧼 Hygiene/Beauté", "🏠 Entretien maison", 
-        "🍳 Espace cuisine", "👕 Pret à porter", "🥦 Produit frais", "🌻 Huile"
-    ]
-    
-    rayon_choisi = st.selectbox("Sélectionnez un rayon pour voir les offres :", liste_rayons)
-    
-    st.divider()
-    st.header(f"Rayon {rayon_choisi}")
-    
+    st.header(f"Promo {choix}")
     col1, col2 = st.columns(2)
-
-    # Exemple dynamique pour les offres selon le rayon
-    if rayon_choisi == "🥩 Boucherie":
-        with col1:
-            st.markdown(f'<div class="product-card"><img src="{IMG_DEFAULT}" class="product-img"><p><b>Viande Hachée</b></p><span class="old-price">9,99€</span> <span class="new-price">8,99€ / kg</span></div>', unsafe_allow_html=True)
     
-    elif rayon_choisi == "🍾 Boisson":
+    if choix == "🥩 Boucherie":
         with col1:
-            st.markdown(f'<div class="product-card"><img src="{IMG_DEFAULT}" class="product-img"><p><b>Jus d\'Orange Frais</b></p><span class="old-price">2,50€</span> <span class="new-price">1,99€</span></div>', unsafe_allow_html=True)
-
-    elif rayon_choisi == "🌻 Huile":
+            st.markdown('<div class="product-card"><b>Viande Hachée</b><br><span class="old-price">9,99€</span> <span class="new-price">8,99€/kg</span></div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="product-card"><b>Merguez</b><br><span class="old-price">13,99€</span> <span class="new-price">12,99€/kg</span></div>', unsafe_allow_html=True)
+    elif choix == "🍎 Fruits & Légumes":
         with col1:
-            st.markdown(f'<div class="product-card"><img src="{IMG_DEFAULT}" class="product-img"><p><b>Huile d\'Olive Vierge</b></p><span class="old-price">7,50€</span> <span class="new-price">5,99€</span></div>', unsafe_allow_html=True)
-            
+            st.markdown('<div class="product-card"><b>Bananes</b><br><span class="old-price">2,00€</span> <span class="new-price">1,59€/kg</span></div>', unsafe_allow_html=True)
     else:
-        # Message par défaut pour les autres rayons
-        st.info(f"Les offres pour le rayon {rayon_choisi} arrivent bientôt ! Restez connectés.")
+        st.info("Arrivage en cours pour ce rayon...")
 
-elif menu == "👤 Mon Espace Fidélité":
-    st.title("💎 Ma Fidélité VM")
-    if st.session_state.user_connected:
-        st.metric("Mon solde de points", f"{st.session_state.user_connected['Points']} pts")
-    else:
-        st.warning("Veuillez vous connecter pour voir vos points.")
+# ---------------- PAGE CADEAUX ---------------- #
+elif menu == "🎁 Cadeaux Fidélité":
+    st.title("🎁 Produits Gratuits")
+    st.write("Échangez vos points ici :")
+    
+    cadeaux = [("Lait", 2), ("Farine", 3), ("Couscous", 1)]
+    cols = st.columns(3)
+    
+    for i, (prod, prix) in enumerate(cadeaux):
+        with cols[i]:
+            st.markdown(f'<div class="gift-card"><b>{prod}</b><br><span class="point-badge">{prix} Pts</span></div>', unsafe_allow_html=True)
+            if st.button(f"Prendre {prod}", key=prod):
+                if st.session_state.user_connected:
+                    if modifier_points(st.session_state.user_connected['Email'], prix, "deduction"):
+                        st.balloons()
+                        st.success(f"Cadeau récupéré !")
+                        st.rerun()
+                    else:
+                        st.error("Pas assez de points !")
+                else:
+                    st.error("Connectez-vous !")
+
+# ---------------- PAGE CAISSE (ADMIN) ---------------- #
+elif menu == "📟 CAISSE (Admin)":
+    st.title("📟 Interface Gérant")
+    st.write("Ajouter des points aux clients lors de leur passage en caisse.")
+    
+    with st.form("ajout_points"):
+        c_email = st.selectbox("Sélectionner le client", st.session_state.clients['Email'].unique())
+        c_points = st.number_input("Nombre de points à ajouter", min_value=1, value=5)
+        if st.form_submit_button("Ajouter les points"):
+            modifier_points(c_email, c_points, "ajout")
+            st.success(f"{c_points} points ajoutés à {c_email}")
+            st.rerun()
