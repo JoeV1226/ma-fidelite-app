@@ -5,12 +5,14 @@ import os
 
 # ---------------- CONFIGURATION & BDD ---------------- #
 DB_FILE = "clients_db.csv"
+# Remplace ces liens par tes propres images si besoin
 LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3724/3724720.png"
+IMG_VIANDE = "https://images.unsplash.com/photo-1607623814075-e512199b028f?q=80&w=400&auto=format&fit=crop"
+IMG_FRUITS = "https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=400&auto=format&fit=crop"
 
 def charger_donnees():
     if os.path.exists(DB_FILE):
-        df = pd.read_csv(DB_FILE)
-        return df
+        return pd.read_csv(DB_FILE)
     return pd.DataFrame(columns=["Nom", "Prenom", "Age", "Email", "Password", "Points", "Statut"])
 
 def sauvegarder_donnees(df):
@@ -23,18 +25,45 @@ if "user_connected" not in st.session_state:
 if "show_signup" not in st.session_state:
     st.session_state.show_signup = False
 
-# ---------------- STYLE VM MAGASIN ---------------- #
+# ---------------- STYLE VM MAGASIN (Noir sur Blanc) ---------------- #
 st.markdown("""
     <style>
-    .stApp { background-color: #f8f9fa; }
+    /* Fond blanc et écriture noire partout */
+    .stApp { background-color: #ffffff; color: #000000; }
+    
+    /* Forcer le texte noir pour les labels et paragraphes */
+    p, span, label, .stMarkdown { color: #000000 !important; }
+    
+    /* Sidebar reste foncée pour le contraste */
     [data-testid="stSidebar"] { background-color: #343a40; color: white; }
-    .offer-card { background-color: white; padding: 15px; border-radius: 12px; border: 2px solid #28a745; margin-bottom: 10px; text-align: center; }
-    .new-price { color: #28a745; font-weight: bold; font-size: 1.3em; }
-    .old-price { text-decoration: line-through; color: #dc3545; }
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label { color: white !important; }
+    
+    /* Cartes des offres avec de vraies images */
+    .offer-card {
+        background-color: #ffffff;
+        border-radius: 15px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        overflow: hidden;
+        text-align: center;
+        padding-bottom: 15px;
+    }
+    .offer-img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+    }
+    .new-price { color: #28a745; font-weight: bold; font-size: 1.4em; }
+    .old-price { text-decoration: line-through; color: #dc3545; font-size: 1em; }
+    
+    /* Onglets */
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
+    .stTabs [data-baseweb="tab"] { color: #000000; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- SIDEBAR (LOGO & CONNEXION) ---------------- #
+# ---------------- SIDEBAR ---------------- #
 with st.sidebar:
     st.image(LOGO_URL, width=80)
     st.markdown("<h2 style='color:white;'>VM Magasin</h2>", unsafe_allow_html=True)
@@ -48,7 +77,7 @@ with st.sidebar:
             user = st.session_state.clients[(st.session_state.clients["Email"] == email_log) & (st.session_state.clients["Password"] == pass_log)]
             if not user.empty:
                 st.session_state.user_connected = user.iloc[0].to_dict()
-                st.session_state.show_signup = False # Ferme l'inscription si elle était ouverte
+                st.session_state.show_signup = False
                 st.rerun()
             else:
                 st.error("Identifiants incorrects")
@@ -58,59 +87,80 @@ with st.sidebar:
             st.session_state.show_signup = True
             st.rerun()
     else:
-        st.success(f"Salut, {st.session_state.user_connected['Prenom']} !")
-        st.metric("Mes Points", f"{st.session_state.user_connected['Points']} pts")
+        st.success(f"Connecté : {st.session_state.user_connected['Prenom']}")
         if st.button("Se déconnecter"):
             st.session_state.user_connected = None
             st.rerun()
 
-# ---------------- FORMULAIRE D'INSCRIPTION (S'affiche en haut si activé) ---------------- #
+# ---------------- FORMULAIRE D'INSCRIPTION ---------------- #
 if st.session_state.show_signup and st.session_state.user_connected is None:
-    with st.expander("📝 FORMULAIRE D'INSCRIPTION - VM MAGASIN", expanded=True):
+    with st.expander("📝 INSCRIPTION - REMPLISSEZ VOS INFORMATIONS", expanded=True):
         with st.form("inscription"):
             c1, c2 = st.columns(2)
             nom = c1.text_input("Nom")
             prenom = c2.text_input("Prénom")
             age = st.number_input("Âge", min_value=12)
-            email = st.text_input("Email de contact")
+            email = st.text_input("Email")
             mdp = st.text_input("Mot de passe", type="password")
             
-            if st.form_submit_button("Valider la création"):
-                if not email or not mdp:
-                    st.error("Email et Mot de passe obligatoires")
-                else:
+            if st.form_submit_button("Créer mon compte"):
+                if email and mdp:
                     new_user = pd.DataFrame([{"Nom": nom, "Prenom": prenom, "Age": age, "Email": email, "Password": mdp, "Points": 0, "Statut": "Actif"}])
                     st.session_state.clients = pd.concat([st.session_state.clients, new_user], ignore_index=True)
                     sauvegarder_donnees(st.session_state.clients)
-                    st.success(f"✅ Compte créé ! Un email a été envoyé à {email} (simulation).")
-                    st.session_state.show_signup = False # On ferme le formulaire
-                    # st.rerun() # Optionnel : relance pour mettre à jour l'affichage
+                    st.success("Compte créé ! Connectez-vous à gauche.")
+                    st.session_state.show_signup = False
+                else:
+                    st.error("Champs requis manquants.")
 
-# ---------------- INTERFACE DU MAGASIN (Toujours accessible) ---------------- #
-st.title("🛒 Notre Magasin")
+# ---------------- CONTENU PRINCIPAL ---------------- #
+st.title("🛒 Bienvenue chez VM Magasin")
 
-tabs = st.tabs(["🔥 Offres Spéciales", "📖 Catalogue", "💎 Ma Fidélité"])
+tabs = st.tabs(["⭐ Nos Offres", "📋 Catalogue", "💎 Ma Fidélité"])
 
 with tabs[0]:
-    st.subheader("Les promos VM")
-    colA, colB = st.columns(2)
-    with colA:
-        st.markdown('<div class="offer-card"><b>Boucherie</b><br>Escalope dinde (1kg)<br><span class="old-price">9,59€</span> <span class="new-price">8,59€</span></div>', unsafe_allow_html=True)
-    with colB:
-        st.markdown('<div class="offer-card"><b>Fidélité</b><br>Bonus Nouveau Client<br><span class="new-price">+10 Points offerts</span></div>', unsafe_allow_html=True)
+    st.subheader("Promotions de la semaine")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f'''
+            <div class="offer-card">
+                <img src="{IMG_VIANDE}" class="offer-img">
+                <div style="padding:10px;">
+                    <b style="color:black;">🥩 BOUCHERIE</b><br>
+                    <span style="color:black;">1kg Escalope de dinde</span><br>
+                    <span class="old-price">9,59€</span> <span class="new-price">8,59€</span>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown(f'''
+            <div class="offer-card">
+                <img src="{IMG_FRUITS}" class="offer-img">
+                <div style="padding:10px;">
+                    <b style="color:black;">🍎 RAYON FRAIS</b><br>
+                    <span style="color:black;">Filet de pommes (2kg)</span><br>
+                    <span class="old-price">3,50€</span> <span class="new-price">2,49€</span>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
 
 with tabs[1]:
-    st.subheader("Rechercher un produit")
-    search = st.text_input("🔍 Tapez le nom d'un article...")
-    # Simulation de données
-    df_prod = pd.DataFrame({"Article": ["Lait", "Pain", "Pommes", "Escalope"], "Prix": ["1.20€", "0.90€", "2.50€", "8.59€"], "Stock": ["Oui", "Oui", "Oui", "Oui"]})
+    st.subheader("Stock et Catalogue")
+    df_prod = pd.DataFrame({
+        "Produit": ["Lait", "Pain", "Pommes", "Escalope"],
+        "Prix": ["1.20€", "0.90€", "2.49€", "8.59€"],
+        "Disponibilité": ["En stock", "En stock", "En stock", "Dernières pièces"]
+    })
     st.table(df_prod)
 
 with tabs[2]:
-    st.subheader("Mon Espace Fidélité")
+    st.subheader("Espace Fidélité")
     if st.session_state.user_connected:
         st.write(f"Titulaire : **{st.session_state.user_connected['Prenom']} {st.session_state.user_connected['Nom']}**")
-        st.progress(min(int(st.session_state.user_connected['Points'])/100, 1.0))
-        st.write("Prochain coupon : 100 points")
+        pts = st.session_state.user_connected['Points']
+        st.metric("Points cumulés", f"{pts} pts")
+        st.progress(min(int(pts)/100, 1.0))
     else:
-        st.info("Connectez-vous pour voir vos avantages personnalisés.")
+        st.info("Connectez-vous pour voir vos points.")
