@@ -7,7 +7,6 @@ from streamlit_qrcode_scanner import qrcode_scanner
 
 # ---------------- CONFIGURATION & BDD ---------------- #
 DB_FILE = "clients_db.csv"
-# TON EMAIL CONFIGURÉ COMME SEUL ADMINISTRATEUR
 ADMIN_EMAIL = "douglaceb@gmail.com" 
 
 def charger_donnees():
@@ -21,10 +20,17 @@ def sauvegarder_donnees(df):
 if "clients" not in st.session_state:
     st.session_state.clients = charger_donnees()
 
-# ---------------- STYLE CSS (MEGA MARKET BRANDING) ---------------- #
+# ---------------- STYLE CSS (MEGA MARKET & MODE ÉPURÉ) ---------------- #
 st.markdown("""
     <style>
-    /* Fond blanc et texte noir forcé */
+    /* --- MASQUAGE DES IDENTIFIANTS STREAMLIT & GITHUB --- */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+    [data-testid="stToolbar"] {visibility: hidden;}
+    
+    /* --- STYLE GÉNÉRAL MEGA MARKET --- */
     .stApp { background-color: #ffffff; color: #000000 !important; }
     h1, h2, h3, p, span, label, .stMarkdown, .stMetric { color: #000000 !important; }
     
@@ -44,7 +50,7 @@ st.markdown("""
     .gift-card { border: 2px dashed #007bff; background-color: #f0f7ff; }
     .point-badge { background-color: #007bff; color: white !important; padding: 5px 10px; border-radius: 20px; font-weight: bold; }
 
-    /* Sidebar Sombre */
+    /* Sidebar Sombre Professionnelle */
     [data-testid="stSidebar"] { background-color: #1a1a1a; }
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label { 
         color: #ffffff !important; 
@@ -68,7 +74,6 @@ with st.sidebar:
             st.warning("🔒 MODE GÉRANT ACTIVÉ")
             menu = st.radio("Actions", ["📟 CAISSE (Scanner)", "👥 Liste Clients", "🛒 Rayons"])
         else:
-            # Refresh points client
             pts = st.session_state.clients[st.session_state.clients['Email'] == user['Email']]['Points'].values[0]
             st.metric("⭐ Mes Points Mega Market", f"{pts}")
             menu = st.radio("Menu", ["📱 Mon Badge QR", "🛒 Rayons", "🎁 Cadeaux"])
@@ -84,9 +89,9 @@ with st.sidebar:
 # --- PAGE CAISSE (ADMIN SEULEMENT) ---
 if menu == "📟 CAISSE (Scanner)":
     st.title("📟 Caisse Mega Market")
-    st.write("Scannez le badge pour créditer le client.")
+    st.write("Scannez le badge client pour créditer les points.")
     
-    scanned_email = qrcode_scanner(key='scanner_mega')
+    scanned_email = qrcode_scanner(key='scanner_mega_pro')
     target = scanned_email if scanned_email else st.selectbox("Ou choisir manuellement :", [""] + list(st.session_state.clients['Email'].unique()))
 
     if target and target != "":
@@ -95,13 +100,12 @@ if menu == "📟 CAISSE (Scanner)":
             c = user_row.iloc[0]
             st.markdown(f"### Client : {c['Prenom']} {c['Nom']}")
             montant = st.number_input("Montant de l'achat (€)", min_value=0.0, step=1.0)
-            bonus = int(montant / 10) # 1 point tous les 10€
-            
-            if st.button(f"Ajouter {bonus} points"):
+            if st.button(f"Confirmer l'ajout"):
+                bonus = int(montant / 10)
                 idx = st.session_state.clients.index[st.session_state.clients['Email'] == target][0]
                 st.session_state.clients.at[idx, 'Points'] += bonus
                 sauvegarder_donnees(st.session_state.clients)
-                st.success("Points mis à jour !")
+                st.success(f"Points mis à jour ! (+{bonus})")
                 st.balloons()
                 st.rerun()
 
@@ -117,14 +121,14 @@ elif menu == "📱 Mon Badge QR":
     qr = qrcode.make(email_client)
     buf = BytesIO()
     qr.save(buf)
-    st.image(buf.getvalue(), caption="Présentez ce code en caisse", width=300)
+    st.image(buf.getvalue(), caption="À scanner lors de votre passage en caisse", width=300)
 
 # --- PAGE RAYONS (TOUS) ---
 elif menu == "🛒 Rayons":
     st.title("Rayons Mega Market")
     rayons = ["🥩 Boucherie", "🍎 Fruits & Légumes", "🍾 Boison", "🧂 Condiment", "🍪 Gateaux/Chips", "☕ Thé/Café", "🍝 Pate", "🌾 Feculent/Cereal", "🥫 Conserve/Bocaux", "🌱 Leguminseuse", "🥜 Fruit sec", "📦 Rayon sec", "🥖 Boulangerie", "🧼 Hygiene/Beauté", "🏠 Entretien maison", "🍳 Espace cuisine", "👕 Pret a porter", "🥦 Produit frais", "🌻 Huile"]
     choix = st.selectbox("Choisir un rayon :", rayons)
-    st.info(f"Consultez nos arrivages pour le rayon {choix} en magasin !")
+    st.info(f"Consultez les offres {choix} en magasin.")
 
 # --- PAGE CADEAUX (CLIENT UNIQUEMENT) ---
 elif menu == "🎁 Cadeaux":
@@ -148,8 +152,8 @@ elif menu == "🎁 Cadeaux":
 # --- PAGE CONNEXION ---
 elif menu == "🔑 Connexion":
     st.title("Espace Fidélité Mega Market")
-    tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
-    with tab1:
+    t1, t2 = st.tabs(["Connexion", "Créer un compte"])
+    with t1:
         e = st.text_input("Email", key="login_e")
         p = st.text_input("Mot de passe", type="password", key="login_p")
         if st.button("Se connecter"):
@@ -159,7 +163,7 @@ elif menu == "🔑 Connexion":
                 st.rerun()
             else:
                 st.error("Identifiants incorrects.")
-    with tab2:
+    with t2:
         with st.form("inscription"):
             st.write("### Devenir membre Mega Market")
             n = st.text_input("Nom")
