@@ -20,21 +20,29 @@ def sauvegarder_donnees(df):
 if "clients" not in st.session_state:
     st.session_state.clients = charger_donnees()
 
-# ---------------- STYLE CSS (MEGA MARKET & MODE ÉPURÉ) ---------------- #
+# ---------------- STYLE CSS (NETTOYAGE TOTAL & BRANDING) ---------------- #
 st.markdown("""
     <style>
-    /* --- MASQUAGE DES IDENTIFIANTS STREAMLIT & GITHUB --- */
+    /* 1. SUPPRESSION RADICALE DES ÉLÉMENTS STREAMLIT/GITHUB */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
-    [data-testid="stToolbar"] {visibility: hidden;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stDecoration"] {display: none;}
+    [data-testid="stStatusWidget"] {display: none;}
     
-    /* --- STYLE GÉNÉRAL MEGA MARKET --- */
+    /* Masquer le badge "Made with Streamlit" et le lien profil en bas à droite */
+    div[data-testid="stStatusWidget"] {display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    .viewerBadge_link__1S137 {display: none !important;}
+    #streamlitDetails {display: none !important;}
+    
+    /* 2. STYLE GÉNÉRAL MEGA MARKET */
     .stApp { background-color: #ffffff; color: #000000 !important; }
     h1, h2, h3, p, span, label, .stMarkdown, .stMetric { color: #000000 !important; }
     
-    /* Correction visibilité des champs de saisie */
+    /* Forcer le noir pour les textes dans les formulaires et inputs */
     input, textarea, [data-baseweb="input"] { 
         color: #000000 !important; 
         -webkit-text-fill-color: #000000 !important; 
@@ -42,12 +50,11 @@ st.markdown("""
     .stForm, div[data-testid="stExpander"], .stTabs { color: #000000 !important; }
 
     /* Cartes Produits et Cadeaux */
-    .product-card, .gift-card {
-        border: 1px solid #ddd; border-radius: 15px; padding: 15px;
+    .gift-card {
+        border: 2px dashed #007bff; border-radius: 15px; padding: 15px;
         text-align: center; box-shadow: 0px 4px 6px rgba(0,0,0,0.05);
-        background-color: #fff; margin-bottom: 20px; color: #000 !important;
+        background-color: #f0f7ff; margin-bottom: 20px; color: #000 !important;
     }
-    .gift-card { border: 2px dashed #007bff; background-color: #f0f7ff; }
     .point-badge { background-color: #007bff; color: white !important; padding: 5px 10px; border-radius: 20px; font-weight: bold; }
 
     /* Sidebar Sombre Professionnelle */
@@ -67,7 +74,6 @@ with st.sidebar:
     if st.session_state.user_connected:
         user = st.session_state.user_connected
         is_admin = (user['Email'] == ADMIN_EMAIL)
-        
         st.success(f"Bonjour, {user['Prenom']}")
         
         if is_admin:
@@ -86,14 +92,10 @@ with st.sidebar:
 
 # ---------------- LOGIQUE DES PAGES ---------------- #
 
-# --- PAGE CAISSE (ADMIN SEULEMENT) ---
 if menu == "📟 CAISSE (Scanner)":
     st.title("📟 Caisse Mega Market")
-    st.write("Scannez le badge client pour créditer les points.")
-    
-    scanned_email = qrcode_scanner(key='scanner_mega_pro')
+    scanned_email = qrcode_scanner(key='scanner_pro_clean')
     target = scanned_email if scanned_email else st.selectbox("Ou choisir manuellement :", [""] + list(st.session_state.clients['Email'].unique()))
-
     if target and target != "":
         user_row = st.session_state.clients[st.session_state.clients['Email'] == target]
         if not user_row.empty:
@@ -109,12 +111,10 @@ if menu == "📟 CAISSE (Scanner)":
                 st.balloons()
                 st.rerun()
 
-# --- PAGE LISTE CLIENTS (ADMIN SEULEMENT) ---
 elif menu == "👥 Liste Clients":
     st.title("👥 Gestionnaire de Clients")
     st.dataframe(st.session_state.clients[["Nom", "Prenom", "Email", "Points", "Statut"]])
 
-# --- PAGE MON BADGE (CLIENT UNIQUEMENT) ---
 elif menu == "📱 Mon Badge QR":
     st.title("Mon Badge Mega Market")
     email_client = st.session_state.user_connected['Email']
@@ -123,14 +123,11 @@ elif menu == "📱 Mon Badge QR":
     qr.save(buf)
     st.image(buf.getvalue(), caption="À scanner lors de votre passage en caisse", width=300)
 
-# --- PAGE RAYONS (TOUS) ---
 elif menu == "🛒 Rayons":
     st.title("Rayons Mega Market")
     rayons = ["🥩 Boucherie", "🍎 Fruits & Légumes", "🍾 Boison", "🧂 Condiment", "🍪 Gateaux/Chips", "☕ Thé/Café", "🍝 Pate", "🌾 Feculent/Cereal", "🥫 Conserve/Bocaux", "🌱 Leguminseuse", "🥜 Fruit sec", "📦 Rayon sec", "🥖 Boulangerie", "🧼 Hygiene/Beauté", "🏠 Entretien maison", "🍳 Espace cuisine", "👕 Pret a porter", "🥦 Produit frais", "🌻 Huile"]
-    choix = st.selectbox("Choisir un rayon :", rayons)
-    st.info(f"Consultez les offres {choix} en magasin.")
+    st.selectbox("Choisir un rayon :", rayons)
 
-# --- PAGE CADEAUX (CLIENT UNIQUEMENT) ---
 elif menu == "🎁 Cadeaux":
     st.title("🎁 Boutique Cadeaux")
     cadeaux = [("Lait 1L", 2), ("Farine 1kg", 3), ("Couscous 500g", 1)]
@@ -149,7 +146,6 @@ elif menu == "🎁 Cadeaux":
                 else:
                     st.error("Points insuffisants.")
 
-# --- PAGE CONNEXION ---
 elif menu == "🔑 Connexion":
     st.title("Espace Fidélité Mega Market")
     t1, t2 = st.tabs(["Connexion", "Créer un compte"])
@@ -161,8 +157,6 @@ elif menu == "🔑 Connexion":
             if not u.empty:
                 st.session_state.user_connected = u.iloc[0].to_dict()
                 st.rerun()
-            else:
-                st.error("Identifiants incorrects.")
     with t2:
         with st.form("inscription"):
             st.write("### Devenir membre Mega Market")
