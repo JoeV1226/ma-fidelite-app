@@ -20,36 +20,38 @@ def sauvegarder_donnees(df):
 if "clients" not in st.session_state:
     st.session_state.clients = charger_donnees()
 
-# ---------------- STYLE CSS (NETTOYAGE TOTAL & BRANDING) ---------------- #
+# ---------------- STYLE CSS (NETTOYAGE TOTAL RADICAL) ---------------- #
 st.markdown("""
     <style>
-    /* 1. SUPPRESSION RADICALE DES ÉLÉMENTS STREAMLIT/GITHUB */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display:none;}
-    [data-testid="stToolbar"] {display: none;}
-    [data-testid="stDecoration"] {display: none;}
-    [data-testid="stStatusWidget"] {display: none;}
+    /* 1. SUPPRESSION TOTALE ET DÉFINITIVE DES ÉLÉMENTS STREAMLIT/GITHUB */
+    #MainMenu {visibility: hidden; display: none !important;}
+    header {visibility: hidden; display: none !important;}
+    footer {visibility: hidden; display: none !important;}
+    .stDeployButton {display:none !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    [data-testid="stStatusWidget"] {display: none !important;}
     
-    /* Masquer le badge "Made with Streamlit" et le lien profil en bas à droite */
-    div[data-testid="stStatusWidget"] {display: none !important;}
-    .viewerBadge_container__1QSob {display: none !important;}
-    .viewerBadge_link__1S137 {display: none !important;}
+    /* Ciblage spécifique du badge de profil et du lien Streamlit en bas à droite */
+    div[class*="viewerBadge"] {display: none !important;}
+    div[class*="styles_viewerBadge"] {display: none !important;}
     #streamlitDetails {display: none !important;}
     
+    /* Supprimer l'espace vide en haut et en bas */
+    .block-container {padding-top: 1rem !important; padding-bottom: 0rem !important;}
+
     /* 2. STYLE GÉNÉRAL MEGA MARKET */
     .stApp { background-color: #ffffff; color: #000000 !important; }
     h1, h2, h3, p, span, label, .stMarkdown, .stMetric { color: #000000 !important; }
     
-    /* Forcer le noir pour les textes dans les formulaires et inputs */
+    /* Correction visibilité des champs de saisie */
     input, textarea, [data-baseweb="input"] { 
         color: #000000 !important; 
         -webkit-text-fill-color: #000000 !important; 
     }
     .stForm, div[data-testid="stExpander"], .stTabs { color: #000000 !important; }
 
-    /* Cartes Produits et Cadeaux */
+    /* Cartes Cadeaux */
     .gift-card {
         border: 2px dashed #007bff; border-radius: 15px; padding: 15px;
         text-align: center; box-shadow: 0px 4px 6px rgba(0,0,0,0.05);
@@ -94,7 +96,7 @@ with st.sidebar:
 
 if menu == "📟 CAISSE (Scanner)":
     st.title("📟 Caisse Mega Market")
-    scanned_email = qrcode_scanner(key='scanner_pro_clean')
+    scanned_email = qrcode_scanner(key='scanner_v3_ultra')
     target = scanned_email if scanned_email else st.selectbox("Ou choisir manuellement :", [""] + list(st.session_state.clients['Email'].unique()))
     if target and target != "":
         user_row = st.session_state.clients[st.session_state.clients['Email'] == target]
@@ -130,43 +132,5 @@ elif menu == "🛒 Rayons":
 
 elif menu == "🎁 Cadeaux":
     st.title("🎁 Boutique Cadeaux")
-    cadeaux = [("Lait 1L", 2), ("Farine 1kg", 3), ("Couscous 500g", 1)]
-    cols = st.columns(3)
-    for i, (prod, coût) in enumerate(cadeaux):
-        with cols[i]:
-            st.markdown(f'<div class="gift-card"><b>{prod}</b><br><span class="point-badge">{coût} Pts</span></div>', unsafe_allow_html=True)
-            if st.button(f"Prendre {prod}", key=f"gift_{prod}"):
-                u_email = st.session_state.user_connected['Email']
-                idx = st.session_state.clients.index[st.session_state.clients['Email'] == u_email][0]
-                if st.session_state.clients.at[idx, 'Points'] >= coût:
-                    st.session_state.clients.at[idx, 'Points'] -= coût
-                    sauvegarder_donnees(st.session_state.clients)
-                    st.success("Cadeau validé !")
-                    st.rerun()
-                else:
-                    st.error("Points insuffisants.")
-
-elif menu == "🔑 Connexion":
-    st.title("Espace Fidélité Mega Market")
-    t1, t2 = st.tabs(["Connexion", "Créer un compte"])
-    with t1:
-        e = st.text_input("Email", key="login_e")
-        p = st.text_input("Mot de passe", type="password", key="login_p")
-        if st.button("Se connecter"):
-            u = st.session_state.clients[(st.session_state.clients["Email"] == e) & (st.session_state.clients["Password"] == p)]
-            if not u.empty:
-                st.session_state.user_connected = u.iloc[0].to_dict()
-                st.rerun()
-    with t2:
-        with st.form("inscription"):
-            st.write("### Devenir membre Mega Market")
-            n = st.text_input("Nom")
-            pr = st.text_input("Prénom")
-            mail = st.text_input("Email")
-            passw = st.text_input("Mot de passe", type="password")
-            if st.form_submit_button("S'inscrire"):
-                if mail and passw:
-                    new_cl = pd.DataFrame([{"Nom": n, "Prenom": pr, "Email": mail, "Password": passw, "Points": 0, "Statut": "Actif"}])
-                    st.session_state.clients = pd.concat([st.session_state.clients, new_cl], ignore_index=True)
-                    sauvegarder_donnees(st.session_state.clients)
-                    st.success("Compte créé avec succès !")
+    cadeaux = [("Lait 1L", 2
+    
